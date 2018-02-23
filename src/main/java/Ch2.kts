@@ -1,10 +1,9 @@
 @file:Suppress("FunctionName")
 
-import io.reactivex.Observable
-import io.reactivex.Observer
-import io.reactivex.Single
+import io.reactivex.*
 import io.reactivex.disposables.Disposable
 import io.reactivex.functions.Consumer
+import io.reactivex.observers.ResourceObserver
 import io.reactivex.rxkotlin.toCompletable
 import io.reactivex.rxkotlin.toObservable
 import java.lang.Thread.sleep
@@ -405,3 +404,123 @@ fun ex_29() {
 }
 
 //ex_29()
+
+// Maybe
+
+// A Maybe that's empty, and one that isn't, and another that observes with a
+// MaybeObserver.
+// onComplete is called when Maybe is empty.  If Maybe is not empty, onSuccess
+// is called and onComplete is not.
+fun ex_30() {
+    Maybe.empty<Int>().subscribe({ println("observable 1 onSuccess: $it") },
+            Throwable::printStackTrace, { println("observable 1 onComplete") })
+
+    Maybe.just(1).subscribe({ println("observable 2 onSuccess: $it") },
+            Throwable::printStackTrace, { println("observable 2 onComplete") })
+
+    Maybe.empty<Int>().subscribe(object : MaybeObserver<Int> {
+        override fun onSubscribe(d: Disposable) {}
+        override fun onSuccess(value: Int) { println("observable 3 onSuccess: $value") }
+        override fun onError(e: Throwable) { e.printStackTrace() }
+        override fun onComplete() { println("observable 3 onComplete") }
+    })
+}
+
+//ex_30()
+
+// An operator that returns a Maybe
+fun ex_31() {
+    Observable.empty<Int>().firstElement().subscribe({ println("onSuccess: $it") },
+            Throwable::printStackTrace, { println("onComplete") })
+}
+
+// ex_31()
+
+// Completable
+
+// Completable observable with a Runnable that executes before calling onComplete,
+// and another that calls onComplete immediately.  Notice absence of type parameter
+// on complete() and CompletableObserver.
+fun ex_32() {
+    Completable.complete().subscribe { println("complete") }
+    Completable.complete().subscribe(object : CompletableObserver {
+        override fun onSubscribe(d: Disposable) {}
+        override fun onComplete() { println("complete") }
+        override fun onError(e: Throwable) {}
+    })
+    Completable.fromRunnable { println("runnable running") }
+            .subscribe { println("complete") }
+}
+
+//ex_32()
+
+// Disposing
+
+// Dispose an Observable.  Notice complete event is not emitted.
+fun ex_33() {
+    val disposable = Observable.interval(1, 1, TimeUnit.SECONDS)
+            .subscribe ({ println(it) }, Throwable::printStackTrace, { println("complete") })
+    Thread.sleep(4000)
+    println("disposing")
+    disposable.dispose()
+    println("no more emissions expected")
+    Thread.sleep(2000)
+    println("no more emissions received")
+    println("exiting")
+}
+
+//ex_33()
+
+// Providing an Observer to subscribe() does not return a
+// Disposable - the Observer must handle displosal.
+// Provinding a ResourceObserver returns a Displosable.
+fun ex_34() {
+    Observable.interval(1, 1, TimeUnit.SECONDS)
+            .subscribe(object : Observer<Long> {
+                lateinit var disposable: Disposable
+
+                override fun onSubscribe(d: Disposable) {
+                    disposable = d
+                }
+
+                override fun onNext(t: Long) {
+                    if (t.equals(4L)) {
+                        println("disposing")
+                        disposable.dispose()
+                    }
+                    else println(t)
+                }
+
+                override fun onComplete() {
+                    println("complete")
+                }
+
+                override fun onError(e: Throwable) {
+                    e.printStackTrace()
+                }
+            })
+    Thread.sleep(6000)
+    println("done")
+
+    val d = Observable.interval(1, 1, TimeUnit.SECONDS)
+            .subscribeWith(object : ResourceObserver<Long>() {
+                override fun onComplete() {
+                    println("complete")
+                }
+
+                override fun onError(e: Throwable) {
+                }
+
+                override fun onNext(t: Long) {
+                    println(t)
+                }
+            })
+    Thread.sleep(4000)
+    println("disposing")
+    d.dispose()
+    println("waiting")
+    Thread.sleep(3000)
+    println("done")
+}
+
+ex_34()
