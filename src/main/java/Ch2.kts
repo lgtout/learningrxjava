@@ -1,11 +1,13 @@
 @file:Suppress("FunctionName")
 
 import io.reactivex.*
+import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.disposables.Disposable
 import io.reactivex.functions.Consumer
 import io.reactivex.observers.ResourceObserver
 import io.reactivex.rxkotlin.toCompletable
 import io.reactivex.rxkotlin.toObservable
+import io.reactivex.schedulers.Schedulers
 import java.lang.Thread.sleep
 import java.util.concurrent.*
 
@@ -523,4 +525,48 @@ fun ex_34() {
     println("done")
 }
 
-ex_34()
+//ex_34()
+
+fun ex_35() {
+    val cd = CompositeDisposable()
+    Observable.interval(1, 1, TimeUnit.SECONDS).run {
+        listOf(subscribe(::println), subscribe(::println))
+                .forEach { cd.addAll(it) }
+    }
+    Thread.sleep(3000)
+    println("disposing")
+    cd.dispose()
+    println("expecting no more emissions")
+    Thread.sleep(3000)
+    println("exiting")
+}
+
+//ex_35()
+
+// Disposing via the emitter provided to Observable.create().
+// Setting an action via setCancellable() that executes when
+// disposal occurs.
+fun ex_36() {
+    val disposable = (Observable.create<Int> { emitter ->
+        try {
+            var i = 0
+            emitter.setCancellable({ println("cancelled") })
+            while (!emitter.isDisposed) {
+                emitter.onNext(i++)
+            }
+            if (!emitter.isDisposed)
+                emitter.onComplete()
+        } catch (e: Throwable) {
+            emitter.onError(e)
+        }
+    }).subscribeOn(Schedulers.computation()).subscribe(
+            ::println, Throwable::printStackTrace, { println("complete") })
+    println("waiting")
+    Thread.sleep(2000)
+    println("disposing")
+    disposable.dispose()
+    println("there should be no more emissions")
+    Thread.sleep(3000)
+}
+
+ex_36()
