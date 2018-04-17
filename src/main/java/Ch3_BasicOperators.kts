@@ -1,8 +1,10 @@
 @file:Suppress("FunctionName")
 
 import com.google.common.collect.ImmutableList
+import io.reactivex.Maybe
 import io.reactivex.Observable
 import io.reactivex.Observer
+import io.reactivex.Single
 import io.reactivex.disposables.Disposable
 import io.reactivex.functions.Action
 import io.reactivex.functions.Consumer
@@ -731,3 +733,54 @@ fun doOnError() {
 }
 //doOnError()
 
+fun doOnSubscribe_doOnDispose() {
+    val d = Observable.interval(1,TimeUnit.SECONDS)
+            .doOnSubscribe { println("doOnSubscribe 1") }
+            .doOnDispose { println("doOnDispose 1") }
+            .map { it * 2 }
+            .doOnSubscribe { println("doOnSubscribe 2") }
+            .doOnDispose { println("doOnDispose 2") }
+            .subscribe({ println(it) }, {
+                it.printStackTrace() })
+    Thread.sleep(2000)
+    d.dispose()
+}
+//doOnSubscribe_doOnDispose()
+
+fun doFinally() {
+    Observable.just(1,2,3)
+            .doFinally { println("finally!") }
+            .subscribe({ println(it) },
+                    { Thread.sleep(100); it.printStackTrace() },
+                    { println("complete") })
+    println()
+    Observable.just(1,2,3)
+            .map { if (it == 2) throw RuntimeException("Boom!") else it }
+            .doFinally { println("finally!") }
+            .subscribe({ println(it) },
+                    { Thread.sleep(100); it.printStackTrace() },
+                    { println("complete") })
+}
+//doFinally()
+
+fun doOnSuccess() {
+    Maybe.empty<Int>().doOnSuccess { println("doOnSuccess $it") }
+            .subscribe({ println(it) },
+                    { Thread.sleep(100); it.printStackTrace() },
+                    { println("complete") })
+    println()
+    Maybe.just(1).doOnSuccess { println("doOnSuccess $it") }
+            .subscribe({ println(it) },
+                    { Thread.sleep(100); it.printStackTrace() },
+                    { println("complete") })
+    println()
+    Single.just(1).doOnSuccess { println("doOnSuccess $it") }
+            .subscribe({ println(it) },
+                    { Thread.sleep(100); it.printStackTrace() })
+    println()
+    Maybe.never<Int>().doOnSuccess { println("doOnSuccess $it") }
+            .subscribe({ println(it) },
+                    { Thread.sleep(100); it.printStackTrace() },
+                    { println("complete") })
+}
+doOnSuccess()
